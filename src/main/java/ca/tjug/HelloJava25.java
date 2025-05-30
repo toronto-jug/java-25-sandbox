@@ -19,10 +19,19 @@ void main() throws IOException, InterruptedException {
 
     Instant startTime = Instant.now();
     try (var scope = StructuredTaskScope.open()) {
-        yearMonths.forEach(yearMonth -> {
-            scope.fork(() -> weatherDataService.fetchWeatherData(yearMonth, stationId));
-        });
+        List<StructuredTaskScope.Subtask<List<WeatherDataPoint>>> subtasks = yearMonths.stream().map(yearMonth -> {
+            return scope.fork(() -> weatherDataService.fetchWeatherData(yearMonth, stationId));
+        }).toList();
         scope.join();
+
+        List<WeatherDataPoint> list = subtasks.stream().flatMap(task -> {
+            return task.get().stream();
+        }).toList();
+
+        System.out.println("Total items: "+ list.size());
+        for (WeatherDataPoint weatherDataPoint : list) {
+            System.out.println(weatherDataPoint);
+        }
     } finally {
         Instant endTime = Instant.now();
         Duration duration = Duration.between(startTime, endTime);
